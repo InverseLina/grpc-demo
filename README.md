@@ -44,7 +44,7 @@ Start][].
  3. run grpc-demo client app to test service service
  
    ```console
-   $ go run server/main.go
+   $ go run client/main.go
    ```
 
 ## Run with K8S
@@ -85,3 +85,58 @@ Start][].
   $ docker push registry.cn-hangzhou.aliyuncs.com/hinsteny/grpc-demo-server:[镜像版本号]
   ```
   请根据实际镜像信息替换示例中的[ImageId]和[镜像版本号]参数。
+
+  # Others
+  ```
+  go test ./cmd/... ./pkg/... -race -coverprofile=coverage.out -covermode=atomic
+  go test ./pkg/ingress/... -race -coverprofile=coverage.out -covermode=atomic
+  go test ./pkg/ingress/kube/annotations/... -race -coverprofile=coverage.out -covermode=atomic
+
+
+  GENERATE_API=1 make gen-client
+
+  docker build -t dubbo-provider-demo:0.0.1 . 
+
+  docker build -t bazel-build:5.4.0 .
+
+  docker tag dubbo-provider-demo:0.0.1 hisoka/dubbo-provider-demo:0.0.1
+
+  docker run -it bazel-build:5.4.0
+
+  docker run --name nacos-standlone -p 8848:8848 nacos-standlone:1.0.0-RC3
+
+  kubectl config set-context --current --namespace=higress-system
+  kubectl config set-context --current --namespace=kruise-system
+
+  kind load docker-image dubbo-provider-demo:0.0.1 -n higress
+  kind load docker-image dubbo-provider-demo:0.0.x -n higress
+  kind load docker-image nacos-standlone:1.0.0-RC3 -n higress
+
+  kubectl apply -f workspace/k8s/nacos/nacos-1.0.0-RC3-pod.yaml
+  kubectl apply -f workspace/k8s/dubbo/demo-provider/demo-provider-pod.yaml
+
+  kubectl logs higress-controller-5d56fb5459-z7hnf higress-core -n higress-system
+  kubectl logs higress-gateway-667799d88f-6n4f6 -n higress-system
+  kubectl logs dubbo-demo-provider -n higress-system
+  kubectl logs grpc-server-demo -n higress-system
+
+
+  kubectl exec -it higress-controller-7c4549cc84-xgf7s -n higress-system -- curl localhost:15014/debug/registryz
+  kubectl exec -it higress-controller-5d56fb5459-9xggq -c higress-core -n higress-system -- curl localhost:15014/debug/configz
+  kubectl exec -it higress-gateway-667799d88f-6n4f6 -n higress-system -- /bin/sh
+  kubectl exec -it grpc-server-demo -n higress-system -- /bin/sh
+
+  kubectl port-forward nacos-standlone-rc3 8848:8848
+  kubectl port-forward grpc-server-demo 50051:50051
+
+  进gateway容器，curl localhost:15020/stats/prometheus，有个指标 envoy_wasm_envoy_wasm_runtime_v8_active 是活跃的插件 vm 数
+
+  ping nacos-standlone-rc3-service.higress-system.pod.cluster.local
+
+
+  protoc -I/Users/h/workspace/project/github/googleapis -I. --include_imports --include_source_info --descriptor_set_out=proto.pb helloworld/helloworld.proto
+
+  brew install protobuf
+
+  protoc -I${GOOGLEAPIS_DIR} -I. --include_imports --include_source_info --descriptor_set_out=proto.pb helloworld/helloworld.proto
+  ```
